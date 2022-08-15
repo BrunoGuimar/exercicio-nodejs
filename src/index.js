@@ -34,12 +34,25 @@ function checksTodoExists(request, response, next){
   const user = users.find(user => user.username === username)
   const {id} = request.params
   const userTodo = user.todos.find(todo => todo.id === id)
-  if(userTodo === -1){
-    response.status(404).json({error: "Todo ID informed does not exist in this user"})
-  }
   request.userTodo = userTodo
+  if(userTodo === undefined){
+   return response.status(404).json({error: "Todo ID informed does not exist in this user"})
+  }
   return next()
 }
+function findUserById(request, response, next){
+  const {id} = request.params
+  const user = users.find(user => user.id === id)
+  if(user === undefined){
+    return response.status(404).json({error: "User not existent"})
+  }
+  request.user = user
+  return next()
+}
+app.get("/user/:id", findUserById, (request, response) => {
+  const {user} = request
+  return response.json(user)
+})
 app.get("/users", (request, response) => {
   response.json(users)
 })
