@@ -19,12 +19,33 @@ function checksExistsUserAccount(request, response, next) {
   request.user = user
   return next()
 }
+function checksCreateTodosUserAvailability(request, response, next){
+  const {username} = request.headers
+  const user = users.find(user => user.username === username)
+  if(user.plan === "pro"){
+    return next()
+  }else if(user.plan === "free" && user.todos.length < 10){
+    return next()
+  }
+  response.json({error: "limits of todos exceeded or no plans avalliable"})
+}
+function checksTodoExists(request, response, next){
+  const {username} = request.headers
+  const user = users.find(user => user.username === username)
+  const {id} = request.params
+  const userTodo = user.todos.find(todo => todo.id === id)
+  if(userTodo === -1){
+    response.status(404).json({error: "Todo ID informed does not exist in this user"})
+  }
+  request.userTodo = userTodo
+  return next()
+}
 app.get("/users", (request, response) => {
   response.json(users)
 })
 
 app.post('/users', (request, response) => {
-  const {name, username} = request.body
+  const {name, username, plan} = request.body
   const userAlreadyExists = users.some(user => user.username === username)
   if(userAlreadyExists){
   return response.status(400).json({error: "User already created"})
@@ -33,7 +54,8 @@ app.post('/users', (request, response) => {
     id: uuidv4(),
     name,
     username,
-    todos: []
+    todos: [],
+    plan
   })
   response.status(201).send()
 })
@@ -43,7 +65,7 @@ app.get('/todos', checksExistsUserAccount, (request, response) => {
   response.json(user.todos)
 });
 
-app.post('/todos', checksExistsUserAccount, (request, response) => {
+app.post('/todos', checksExistsUserAccount, checksCreateTodosUserAvailability, (request, response) => {
   const { title, deadline } = request.body
   const {user} = request
   user.todos.push({
@@ -56,16 +78,11 @@ app.post('/todos', checksExistsUserAccount, (request, response) => {
   response.status(201).json({message: "sucessfully created"})
 });
 
-app.put('/todos/:id', checksExistsUserAccount, (request, response) => {
+app.put('/todos/:id', checksExistsUserAccount, checksTodoExists, (request, response) => {
   const { title, deadline } = request.body
-  const { user } = request
-  const { id } = request.params
-  const userTodos = user.todos.find(user => user.id === id)
-  if(userTodos === undefined){
-    return response.status(404).json({error: "Not able to update a non existing todo"})
-  }
-  userTodos.title = title
-  userTodos.deadline = deadline
+  const { userTodo } = request
+  userTodo.title = title
+  userTodo.deadline = deadline
   response.status(202).json({message: "Sucess on changes"})
 });
 
